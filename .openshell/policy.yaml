@@ -141,3 +141,25 @@ network_policies:
     binaries:
       - { path: /usr/local/bin/claude }
       - { path: /usr/bin/gh }
+  gist:
+    name: gist
+    endpoints:
+      - { host: gist.github.com, port: 443 }
+      - { host: gist.githubusercontent.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/openclaw }
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/curl }
+  hh_api:
+    name: hh_api
+    endpoints:
+      - { host: api.hh.ru, port: 443 }
+      - { host: hh.ru, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/openclaw-hh-vacancies }
+      - { path: /sandbox/.venv/bin/python3 }
+      - { path: /sandbox/.uv/python/cpython-3.13.12-linux-aarch64-gnu/bin/python3.13 }
+      - { path: /usr/bin/curl }
+      - { path: /bin/bash }
+      - { path: /usr/bin/openclaw }
+      - { path: /usr/bin/node }
