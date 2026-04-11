@@ -25,6 +25,14 @@ COPY policy.yaml /etc/openshell/policy.yaml
 COPY openclaw-start.sh /usr/local/bin/openclaw-start
 RUN chmod +x /usr/local/bin/openclaw-start
 
+# Copy the OpenAI Codex auth helper.
+COPY openclaw-auth-codex.sh /usr/local/bin/openclaw-auth-codex
+RUN chmod +x /usr/local/bin/openclaw-auth-codex
+
+# Copy the Telegram bootstrap helper.
+COPY openclaw-init-telegram.sh /usr/local/bin/openclaw-init-telegram
+RUN chmod +x /usr/local/bin/openclaw-init-telegram
+
 # Create OpenClaw workspace
 RUN mkdir -p /sandbox/.openclaw && \
     chown -R sandbox:sandbox /sandbox/.openclaw

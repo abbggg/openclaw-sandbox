@@ -101,6 +101,13 @@ network_policies:
     binaries:
       - { path: /usr/bin/openclaw }
       - { path: /usr/bin/node }
+  telegram:
+    name: telegram
+    endpoints:
+      - { host: api.telegram.org, port: 443, protocol: rest, tls: terminate, enforcement: enforce, access: full }
+    binaries:
+      - { path: /usr/bin/openclaw }
+      - { path: /usr/bin/node }
 
   # --- GitHub REST API (L7, TLS-terminated) ---
   # Read-only by default. Uncomment and scope write rules to specific repos.
