@@ -31,7 +31,7 @@ bash required_permissions:"full_network" command:"openclaw-hh-vacancies search -
 2. Prefer `--format json`, then summarize the top results in chat.
 3. Include title, employer, area, salary, publication time, and URL.
 4. If the user gave only a short query, do not overfit filters on the first attempt.
-5. If the helper is present, do not ask the user to approve routine HH search commands one by one; this sandbox pre-allowlists the helper for normal vacancy searches.
+5. If the helper is present, do not ask the user to approve routine HH search commands one by one; this sandbox starts OpenClaw with the `yolo` exec preset for normal vacancy searches.
 
 ## Useful patterns
 

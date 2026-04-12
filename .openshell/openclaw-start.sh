@@ -10,15 +10,17 @@ set -euo pipefail
 gateway_log="${OPENCLAW_GATEWAY_LOG:-/tmp/gateway.log}"
 gateway_port="${OPENCLAW_GATEWAY_PORT:-18789}"
 config_file="${HOME}/.openclaw/openclaw.json"
-hh_helper_path="/usr/local/bin/openclaw-hh-vacancies"
 
 mkdir -p "${HOME}/.openclaw"
 
-# Keep HH helper execs approval-free for the local operator workflow.
-openclaw config set tools.exec.host '"auto"' --strict-json >/dev/null 2>&1 || true
-if ! openclaw approvals get --json 2>/dev/null | grep -q "\"${hh_helper_path}\""; then
-    openclaw approvals allowlist add --agent "*" "${hh_helper_path}" >/dev/null 2>&1 || true
-fi
+# Keep the local gateway bootable even if another helper previously rewrote
+# the config and dropped the gateway section.
+openclaw config set gateway.mode '"local"' --strict-json >/dev/null 2>&1 || true
+openclaw config set gateway.bind '"loopback"' --strict-json >/dev/null 2>&1 || true
+
+# Keep OpenClaw action prompts disabled inside the sandbox. OpenShell network
+# policy remains the actual boundary for outbound access.
+openclaw exec-policy preset yolo --json >/dev/null 2>&1 || true
 
 if pgrep -u "$(id -u)" -f "openclaw gateway run" >/dev/null 2>&1; then
     echo "OpenClaw gateway is already running."
@@ -62,17 +64,15 @@ echo "  4. Enter the one-time code and finish ChatGPT sign-in."
 echo ""
 echo "Telegram bootstrap:"
 echo "  5. Run: openclaw-init-telegram"
-if [ -n "${OPENCLAW_TELEGRAM_ALLOW_FROM:-}" ]; then
-    echo "  6. OPENCLAW_TELEGRAM_ALLOW_FROM is set, so Telegram will use allowlist mode."
-    echo "  7. DM the bot in Telegram from an allowlisted account."
-else
-    echo "  6. DM the bot in Telegram."
-    echo "  7. Run: openclaw pairing list telegram"
-    echo "  8. Run: openclaw pairing approve telegram <CODE>"
-fi
+echo "  6. DM the bot in Telegram."
+echo "  7. Run: openclaw pairing list telegram"
+echo "  8. Run: openclaw pairing approve telegram <CODE>"
 echo ""
 echo "HH vacancy helper:"
 echo "  - Run: openclaw-hh-vacancies search --text 'python developer' --per-page 5"
 echo "  - Skill: openclaw skills info hh-vacancies"
-echo "  - Exec approvals: openclaw-hh-vacancies is pre-allowlisted for this sandbox"
+echo "  - Action prompts: disabled via 'openclaw exec-policy preset yolo'"
+echo "OpenClaw official catalogs:"
+echo "  - Docs: openclaw docs mcp"
+echo "  - Skills and plugins: openclaw skills search hh"
 echo ""

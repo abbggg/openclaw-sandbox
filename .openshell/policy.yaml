@@ -101,6 +101,18 @@ network_policies:
     binaries:
       - { path: /usr/bin/openclaw }
       - { path: /usr/bin/node }
+  openclaw_catalogs:
+    name: openclaw_catalogs
+    endpoints:
+      - { host: docs.openclaw.ai, port: 443 }
+      - { host: clawhub.ai, port: 443 }
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/openclaw }
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/npx }
+      - { path: /usr/bin/npm }
   telegram:
     name: telegram
     endpoints:

@@ -16,7 +16,7 @@ The repository root may contain any repo-level files that are useful to humans, 
 - **HH OpenClaw skill** -- custom skill materialized into `~/.agents/skills/hh-vacancies`
 - **openclaw-start** -- Helper script that bootstraps local dev config, starts the gateway, and prints the headless OAuth next step
 - **openclaw-auth-codex** -- Post-launch helper that runs `codex login --device-auth` and switches OpenClaw to `openai-codex/gpt-5.4`
-- **openclaw-init-telegram** -- Post-auth helper that enables the native Telegram channel in pairing mode or trusted allowlist mode
+- **openclaw-init-telegram** -- Post-auth helper that enables the native Telegram channel in pairing mode, disables native Telegram exec approvals, and keeps group access disabled
 
 ## Recommended Flow
 
@@ -29,11 +29,9 @@ openshell sandbox connect openclaw-sandbox
 
 The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, starts `openclaw gateway run --dev` in the background, and forwards the local Control UI to `http://127.0.0.1:18789/`.
 
-`openclaw-start` also normalizes local exec settings for this sandbox: it keeps `tools.exec.host=auto` and pre-allowlists `/usr/local/bin/openclaw-hh-vacancies`, so the HH skill can call the helper without extra exec approvals.
+`openclaw-start` also repairs `gateway.mode=local` and `gateway.bind=loopback` if another helper previously dropped the gateway section, then applies the official `openclaw exec-policy preset yolo` preset. That disables OpenClaw-side prompts for command execution and web access inside the sandbox, while OpenShell `policy.yaml` remains the actual network boundary.
 
 If you want Telegram in this sandbox, attach an OpenShell provider that injects `TELEGRAM_BOT_TOKEN` at sandbox create time. OpenShell providers cannot be attached after the sandbox already exists.
-
-If `OPENCLAW_TELEGRAM_ALLOW_FROM` is present in the current shell or in `~/.config/robolaba/secrets.env`, `scripts/openclaw_create_env.sh` also passes it into the sandbox. That switches `openclaw-init-telegram` to trusted allowlist mode for the listed Telegram user ids and avoids the pairing approval step.
 
 If `HH_CLIENT_ID`, `HH_CLIENT_SECRET`, `HH_REDIRECT_URI`, and `HH_USER_AGENT` are present in the current shell or in `~/.config/robolaba/secrets.env`, `scripts/openclaw_create_env.sh` can also attach an optional HH provider during create.
 
@@ -56,8 +54,8 @@ Because the sandbox runs headless, the supported flow is ChatGPT device auth thr
 
 Verified result after successful login:
 
-- `openclaw models status --json --agent dev` resolves the default model to `openai-codex/gpt-5.4`;
-- `openclaw models list --agent dev` shows `openai-codex/gpt-5.4` as `default, configured`.
+- `openclaw models status --json --agent main` resolves the default model to `openai-codex/gpt-5.4`;
+- `openclaw models list --agent main` shows `openai-codex/gpt-5.4` as `default, configured`.
 
 ## Telegram Bootstrap
 
@@ -74,28 +72,18 @@ openclaw-init-telegram
 The helper:
 
 - configures the native OpenClaw Telegram channel via `openclaw channels add --channel telegram --use-env`;
-- enforces `dmPolicy: pairing` by default;
-- switches to `dmPolicy: allowlist` when `OPENCLAW_TELEGRAM_ALLOW_FROM` is present;
-- wires the same allowlist into `commands.allowFrom`, `commands.ownerAllowFrom`, and `tools.elevated.allowFrom` so trusted Telegram operators can trigger exec-backed skills without extra approval prompts;
-- enables Telegram-native exec approval fallback for the allowlisted ids in case a tool still requests human confirmation;
+- enforces `dmPolicy: pairing`, so direct messages still require explicit pairing approval;
+- disables Telegram-native exec approvals because `openclaw-start` already applies the `yolo` exec preset for in-sandbox actions;
 - disables group access with `groupPolicy: disabled`;
-- restarts the local `openclaw gateway run --dev` process so the channel config is applied immediately;
+- restarts the local `openclaw gateway run --dev` process, or starts it if it is absent, so the channel config is applied immediately;
 - relies on OpenShell's provider system for the token, so no Telegram secret is written into `openclaw.json`.
 
-Recommended operator allowlist value:
-
-```bash
-OPENCLAW_TELEGRAM_ALLOW_FROM=156859844
-```
-
-If `OPENCLAW_TELEGRAM_ALLOW_FROM` is not set, DM the bot from Telegram and approve the pairing request:
+DM the bot from Telegram and approve the pairing request:
 
 ```bash
 openclaw pairing list telegram
 openclaw pairing approve telegram <CODE>
 ```
-
-If `OPENCLAW_TELEGRAM_ALLOW_FROM` is set, pairing is skipped and only the listed Telegram user ids are accepted in direct messages.
 
 If the local UI is not reachable right after `create`, re-run the local tunnel from the machine that is running OpenShell:
 
@@ -131,7 +119,7 @@ Verified behaviour in the current sandbox:
 
 Because of that, the helper's default `auto` mode falls back to public search if authenticated vacancy search is forbidden.
 
-The HH helper binary is pre-allowlisted in local OpenClaw approvals, so `hh-vacancies` can execute `openclaw-hh-vacancies ...` without prompting for `/approve` on each search.
+Because the sandbox starts with the `yolo` exec preset, `hh-vacancies` can execute `openclaw-hh-vacancies ...` without per-search OpenClaw approval prompts.
 
 ## OpenShell Policy
 
@@ -140,12 +128,17 @@ The bundled `policy.yaml` includes network policies for the minimum endpoints ne
 - `auth.openai.com`
 - `chatgpt.com`
 - `api.openai.com`
+- `docs.openclaw.ai`
+- `clawhub.ai`
+- `registry.npmjs.org`
 - `api.telegram.org`
 - `api.hh.ru`
 - `gist.github.com`
 - `gist.githubusercontent.com`
 
 The policy is scoped to `/usr/bin/openclaw`, `/usr/bin/node`, `/usr/bin/curl`, `/bin/bash`, the Python runtime inside `/sandbox/.venv` / `/sandbox/.uv`, and the local helper `/usr/local/bin/openclaw-hh-vacancies`.
+
+Per the current official OpenClaw docs, `docs.openclaw.ai` is the live docs index used by `openclaw docs`, and ClawHub is the public OpenClaw registry for skills and plugins. `openclaw docs` currently shells out through `npx mcporter` when `mcporter` is not already installed, so the policy also allows `registry.npmjs.org` for that runtime path. The same official docs do not describe a separate hosted OpenClaw MCP marketplace, so remote MCP servers still need their own explicit allowlist entries if you decide to use them.
 
 ## Build
 
@@ -172,3 +165,5 @@ openclaw-init-telegram
 ## Configuration
 
 OpenClaw stores its state under `~/.openclaw/` inside the sandbox, which resolves to `/sandbox/.openclaw/` in this image. The main config file is `~/.openclaw/openclaw.json`.
+
+Current runtime note: `openclaw gateway run --dev` starts the local dev-mode gateway, but the default agent id inside this sandbox is `main`, not `dev`.
