@@ -23,17 +23,25 @@ The repository root may contain any repo-level files that are useful to humans, 
 From the repository root:
 
 ```bash
-openshell sandbox create --name openclaw-sandbox --from .openshell --policy .openshell/policy.yaml --forward 18789 -- openclaw-start
-openshell sandbox connect openclaw-sandbox
+scripts/openclaw_create_env.sh --sandbox-id openclaw-sandbox
+scripts/openshell_connect_env.sh --sandbox-id openclaw-sandbox openclaw-sandbox
 ```
 
-The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, starts `openclaw gateway run --dev` in the background, and forwards the local Control UI to `http://127.0.0.1:18789/`.
+The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, starts `openclaw gateway run --dev` in the background, and attaches a combined OpenShell provider that injects `TELEGRAM_BOT_TOKEN` plus optional `HH_*` credentials from a per-sandbox secrets file.
 
 `openclaw-start` also repairs `gateway.mode=local` and `gateway.bind=loopback` if another helper previously dropped the gateway section, then applies the official `openclaw exec-policy preset yolo` preset. That disables OpenClaw-side prompts for command execution and web access inside the sandbox, while OpenShell `policy.yaml` remains the actual network boundary.
 
-If you want Telegram in this sandbox, attach an OpenShell provider that injects `TELEGRAM_BOT_TOKEN` at sandbox create time. OpenShell providers cannot be attached after the sandbox already exists.
+For a second materialization such as `openclaw-natasha`, create a dedicated secrets file first and override only the sandbox id:
 
-If `HH_CLIENT_ID`, `HH_CLIENT_SECRET`, `HH_REDIRECT_URI`, and `HH_USER_AGENT` are present in the current shell or in `~/.config/robolaba/secrets.env`, `scripts/openclaw_create_env.sh` can also attach an optional HH provider during create.
+```bash
+chmod 600 ~/.config/robolaba/openclaw-natasha.env
+scripts/openclaw_create_env.sh --sandbox-id openclaw-natasha
+scripts/openshell_connect_env.sh --sandbox-id openclaw-natasha openclaw-sandbox
+```
+
+Default secret resolution for the helper is `~/.config/robolaba/<sandbox-id>.env`, for example `~/.config/robolaba/openclaw-natasha.env`. OpenShell providers cannot be attached after the sandbox already exists.
+
+The helper always requires `TELEGRAM_BOT_TOKEN`. If any of `HH_CLIENT_ID`, `HH_CLIENT_SECRET`, `HH_REDIRECT_URI`, or `HH_USER_AGENT` is present in that file, all four must be present so one combined provider can inject the full HH credential set.
 
 ## Headless ChatGPT Device Auth
 
@@ -85,12 +93,6 @@ openclaw pairing list telegram
 openclaw pairing approve telegram <CODE>
 ```
 
-If the local UI is not reachable right after `create`, re-run the local tunnel from the machine that is running OpenShell:
-
-```bash
-openshell forward start 18789 openclaw-sandbox
-```
-
 ## HH Vacancy Search
 
 Inside the connected sandbox:
@@ -120,6 +122,8 @@ Verified behaviour in the current sandbox:
 Because of that, the helper's default `auto` mode falls back to public search if authenticated vacancy search is forbidden.
 
 Because the sandbox starts with the `yolo` exec preset, `hh-vacancies` can execute `openclaw-hh-vacancies ...` without per-search OpenClaw approval prompts.
+
+If Telegram claims it cannot read `~/.agents/skills/hh-vacancies/SKILL.md`, verify the skill first with `openclaw skills info hh-vacancies`. If the skill is reported as `Ready`, retry the request before changing filesystem permissions.
 
 ## OpenShell Policy
 
