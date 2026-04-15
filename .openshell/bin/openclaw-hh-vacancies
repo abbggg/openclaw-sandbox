@@ -2,8 +2,9 @@
 """
 HeadHunter vacancy helper for the OpenClaw sandbox.
 
-Primary use case:
+Primary use cases:
 - public vacancy search without OAuth for openclaw skill execution
+- fetch one vacancy by id or URL, optionally with OAuth fallback
 
 Optional use case:
 - manual OAuth login to get authenticated search behaviour and /me checks
@@ -31,6 +32,7 @@ OAUTH_TOKEN_URL = f"{API_BASE}/token"
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8765/callback"
 DEFAULT_TOKEN_FILE = os.path.expanduser("~/.config/hh_api/token.json")
 DEFAULT_USER_AGENT = "openclaw-sandbox-hh/1.0 (set HH_USER_AGENT)"
+OPENSHELL_ENV_PLACEHOLDER_PREFIX = "openshell:resolve:env:"
 TIMEOUT = 30
 
 
@@ -139,6 +141,23 @@ class HHClient:
                 raise
         return self._request_json("GET", f"{API_BASE}/vacancies", params=params)
 
+    def get_vacancy(self, vacancy_ref: str, *, host: str, auth_mode: str) -> Dict[str, Any]:
+        vacancy_id = extract_vacancy_id(vacancy_ref)
+        params = {"host": host} if host else {}
+        url = f"{API_BASE}/vacancies/{vacancy_id}"
+        if auth_mode == "public":
+            return self._request_json("GET", url, params=params)
+        if auth_mode == "require":
+            return self._authorized_request("GET", url, params=params)
+        if auth_mode == "auto" and self.store.exists():
+            try:
+                return self._authorized_request("GET", url, params=params)
+            except HHHTTPError as exc:
+                if exc.status == 403:
+                    return self._request_json("GET", url, params=params)
+                raise
+        return self._request_json("GET", url, params=params)
+
     def me(self) -> Dict[str, Any]:
         return self._authorized_request("GET", f"{API_BASE}/me")
 
@@ -156,7 +175,7 @@ class HHClient:
             return self._request_json(method, url, headers=headers, **kwargs)
         except HHHTTPError as exc:
             error_value = extract_error_value(exc.data)
-            if exc.status == 403 and error_value in {"token_expired", "bad_authorization"}:
+            if exc.status == 403 and error_value in {"token_expired", "bad_authorization", "token_revoked"}:
                 refreshed = self._try_reauthorize(token)
                 if refreshed:
                     headers["Authorization"] = f"Bearer {refreshed['access_token']}"
@@ -274,6 +293,22 @@ def parse_manual_code_input(raw: str) -> str:
     return raw
 
 
+def extract_vacancy_id(raw: str) -> str:
+    value = raw.strip()
+    if not value:
+        raise HHError("Пустой vacancy reference. Нужен id вакансии или полный HH URL.")
+    if value.isdigit():
+        return value
+    if value.startswith("http://") or value.startswith("https://"):
+        parsed = urlparse(value)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        for idx, part in enumerate(path_parts[:-1]):
+            if part in {"vacancy", "vacancies"} and path_parts[idx + 1].isdigit():
+                return path_parts[idx + 1]
+        raise HHError(f"Не удалось извлечь vacancy id из URL: {raw!r}")
+    raise HHError(f"Неверный vacancy reference: {raw!r}. Ожидается id или URL.")
+
+
 def extract_error_value(data: Any) -> Optional[str]:
     if isinstance(data, dict):
         if isinstance(data.get("value"), str):
@@ -344,13 +379,23 @@ def parse_kv(raw: str) -> Tuple[str, str]:
     return key, value
 
 
+def env_or_none(name: str) -> Optional[str]:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    value = value.strip()
+    if not value or value.startswith(OPENSHELL_ENV_PLACEHOLDER_PREFIX):
+        return None
+    return value
+
+
 def require_config(args: argparse.Namespace) -> Config:
-    redirect_uri = args.redirect_uri or os.getenv("HH_REDIRECT_URI") or DEFAULT_REDIRECT_URI
-    token_file = Path(args.token_file or os.getenv("HH_TOKEN_FILE") or DEFAULT_TOKEN_FILE).expanduser()
-    user_agent = args.user_agent or os.getenv("HH_USER_AGENT") or DEFAULT_USER_AGENT
+    redirect_uri = args.redirect_uri or env_or_none("HH_REDIRECT_URI") or DEFAULT_REDIRECT_URI
+    token_file = Path(args.token_file or env_or_none("HH_TOKEN_FILE") or DEFAULT_TOKEN_FILE).expanduser()
+    user_agent = args.user_agent or env_or_none("HH_USER_AGENT") or DEFAULT_USER_AGENT
     return Config(
-        client_id=args.client_id or os.getenv("HH_CLIENT_ID"),
-        client_secret=args.client_secret or os.getenv("HH_CLIENT_SECRET"),
+        client_id=args.client_id or env_or_none("HH_CLIENT_ID"),
+        client_secret=args.client_secret or env_or_none("HH_CLIENT_SECRET"),
         redirect_uri=redirect_uri,
         token_file=token_file,
         user_agent=user_agent,
@@ -425,6 +470,17 @@ def command_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_vacancy(args: argparse.Namespace) -> int:
+    config = require_config(args)
+    client = HHClient(config)
+    data = client.get_vacancy(args.vacancy_ref, host=args.host, auth_mode=args.auth_mode)
+    if args.format == "json":
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return 0
+    print_vacancy_summary(data)
+    return 0
+
+
 def build_search_params(args: argparse.Namespace) -> Dict[str, Any]:
     params: Dict[str, Any] = {}
 
@@ -488,6 +544,16 @@ def format_salary(salary: Any) -> str:
     return currency or "—"
 
 
+def print_vacancy_summary(data: Dict[str, Any]) -> None:
+    print(data.get("name", "<без названия>"))
+    print(f"id: {data.get('id') or '—'}")
+    print(f"employer: {(data.get('employer') or {}).get('name') or '—'}")
+    print(f"area: {(data.get('area') or {}).get('name') or '—'}")
+    print(f"salary: {format_salary(data.get('salary'))}")
+    print(f"published_at: {data.get('published_at') or '—'}")
+    print(f"url: {data.get('alternate_url') or data.get('url') or '—'}")
+
+
 def print_summary_table(data: Dict[str, Any]) -> None:
     found = data.get("found")
     pages = data.get("pages")
@@ -524,6 +590,8 @@ def build_parser() -> argparse.ArgumentParser:
             Примеры:
               openclaw-hh-vacancies search --text "python developer" --per-page 5
               openclaw-hh-vacancies search --text "data engineer" --param schedule=remote --format json
+              openclaw-hh-vacancies vacancy 131717434
+              openclaw-hh-vacancies vacancy https://api.hh.ru/vacancies/131717434 --auth-mode require
               openclaw-hh-vacancies login-user
               openclaw-hh-vacancies me
             """
@@ -582,6 +650,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     search.add_argument("--format", choices=["table", "json"], default="table", help="Формат вывода")
     search.set_defaults(func=command_search)
+
+    vacancy = subparsers.add_parser("vacancy", help="Получить одну вакансию по id или URL")
+    add_common_auth_args(vacancy)
+    vacancy.add_argument("--auth-mode", choices=["auto", "public", "require"], default="auto")
+    vacancy.add_argument("--host", default="hh.ru", help="Сайт группы HH. По умолчанию hh.ru")
+    vacancy.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="json",
+        help="Формат вывода; по умолчанию json для точечного запроса",
+    )
+    vacancy.add_argument("vacancy_ref", help="id вакансии или полный hh/api.hh URL")
+    vacancy.set_defaults(func=command_vacancy)
 
     return parser
 
