@@ -10,11 +10,12 @@ The repository root may contain any repo-level files that are useful to humans, 
 ## What's Included
 
 - **OpenClaw CLI 2026.4.9** -- Agent orchestration and gateway management
-- **OpenClaw Gateway** -- Local gateway for agent-to-tool communication
+- **OpenClaw Gateway** -- Local gateway for agent-to-tool communication, enabled persistently by the host-side create helper
 - **Node.js 22** -- Runtime required by the OpenClaw gateway
 - **HH vacancies helper** -- `openclaw-hh-vacancies` for public or OAuth-backed vacancy search via `api.hh.ru`
 - **HH OpenClaw skill** -- custom skill materialized into `~/.agents/skills/hh-vacancies`
-- **openclaw-start** -- Helper script that bootstraps local dev config, starts the gateway, and prints the headless OAuth next step
+- **openclaw-start** -- Helper script that prints the headless OAuth next step and can repair/restart the gateway on demand
+- **openclaw-sandbox-command** -- Foreground OpenShell sandbox command that keeps the gateway running across pod restarts
 - **openclaw-auth-codex** -- Post-launch helper that runs `codex login --device-auth` and switches OpenClaw to `openai-codex/gpt-5.4`
 - **openclaw-init-telegram** -- Post-auth helper that enables the native Telegram channel in pairing mode, disables native Telegram exec approvals, and keeps group access disabled
 
@@ -27,9 +28,9 @@ scripts/openclaw_create_env.sh --sandbox-id openclaw-sandbox
 scripts/openshell_connect_env.sh --sandbox-id openclaw-sandbox openclaw-sandbox
 ```
 
-The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, starts `openclaw gateway run --dev` in the background, and attaches a combined OpenShell provider that injects `TELEGRAM_BOT_TOKEN` plus optional `HH_*` credentials from a per-sandbox secrets file.
+The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, attaches a combined OpenShell provider that injects `TELEGRAM_BOT_TOKEN` plus optional `HH_*` credentials from a per-sandbox secrets file, then patches the Sandbox CR so OpenShell launches the baked `openclaw-sandbox-command` on every pod boot.
 
-`openclaw-start` also repairs `gateway.mode=local` and `gateway.bind=loopback` if another helper previously dropped the gateway section, then applies the official `openclaw exec-policy preset yolo` preset. That disables OpenClaw-side prompts for command execution and web access inside the sandbox, while OpenShell `policy.yaml` remains the actual network boundary.
+`openclaw-sandbox-command` repairs `gateway.mode=local`, `gateway.bind=loopback`, and `discovery.mdns.mode=off`, applies the official `openclaw exec-policy preset yolo` preset, and keeps the gateway in the foreground so OpenClaw stays alive across sandbox pod restarts. `scripts/openclaw_create_env.sh` applies the required Sandbox CR patch automatically. `openclaw-start` remains the human-facing helper for first-run instructions and manual recovery if you intentionally stop the gateway inside an existing shell session.
 
 For a second materialization such as `openclaw-natasha`, create a dedicated secrets file first and override only the sandbox id:
 
@@ -85,6 +86,8 @@ The helper:
 - disables group access with `groupPolicy: disabled`;
 - restarts the local `openclaw gateway run --dev` process, or starts it if it is absent, so the channel config is applied immediately;
 - relies on OpenShell's provider system for the token, so no Telegram secret is written into `openclaw.json`.
+
+Do not move the gateway into a plain sidecar container. The attached provider credentials arrive as `openshell:resolve:env:*` placeholders and are only resolved correctly on the main OpenShell sandbox command path.
 
 DM the bot from Telegram and approve the pairing request:
 
@@ -166,8 +169,13 @@ openclaw-auth-codex
 openclaw-init-telegram
 ```
 
+For normal lifecycle this manual step is no longer required: `scripts/openclaw_create_env.sh` patches the sandbox runtime so OpenShell launches `/usr/local/bin/openclaw-sandbox-command` automatically on every pod boot.
+
 ## Configuration
 
 OpenClaw stores its state under `~/.openclaw/` inside the sandbox, which resolves to `/sandbox/.openclaw/` in this image. The main config file is `~/.openclaw/openclaw.json`.
 
-Current runtime note: `openclaw gateway run --dev` starts the local dev-mode gateway, but the default agent id inside this sandbox is `main`, not `dev`.
+Current runtime notes:
+
+- `scripts/openclaw_create_env.sh` patches `OPENSHELL_SANDBOX_COMMAND=/usr/local/bin/openclaw-sandbox-command` into the Sandbox CR and keeps the gateway alive across pod restarts.
+- The foreground gateway path uses `openclaw gateway run --dev`; the default agent id inside this sandbox is still `main`, not `dev`.

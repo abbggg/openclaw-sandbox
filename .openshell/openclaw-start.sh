@@ -17,12 +17,13 @@ mkdir -p "${HOME}/.openclaw"
 # the config and dropped the gateway section.
 openclaw config set gateway.mode '"local"' --strict-json >/dev/null 2>&1 || true
 openclaw config set gateway.bind '"loopback"' --strict-json >/dev/null 2>&1 || true
+openclaw config set discovery.mdns.mode '"off"' --strict-json >/dev/null 2>&1 || true
 
 # Keep OpenClaw action prompts disabled inside the sandbox. OpenShell network
 # policy remains the actual boundary for outbound access.
 openclaw exec-policy preset yolo --json >/dev/null 2>&1 || true
 
-if pgrep -u "$(id -u)" -f "openclaw gateway run" >/dev/null 2>&1; then
+if pgrep -u "$(id -u)" -f "openclaw-gateway" >/dev/null 2>&1 || pgrep -u "$(id -u)" -f "openclaw gateway run" >/dev/null 2>&1; then
     echo "OpenClaw gateway is already running."
 else
     setsid -f sh -lc "exec openclaw gateway run --dev > \"${gateway_log}\" 2>&1 < /dev/null"

@@ -23,7 +23,8 @@ COPY policy.yaml /etc/openshell/policy.yaml
 
 # Copy the OpenClaw startup helper
 COPY openclaw-start.sh /usr/local/bin/openclaw-start
-RUN chmod +x /usr/local/bin/openclaw-start
+COPY openclaw-sandbox-command.sh /usr/local/bin/openclaw-sandbox-command
+RUN chmod +x /usr/local/bin/openclaw-start /usr/local/bin/openclaw-sandbox-command
 
 # Copy the HH vacancies helper.
 COPY bin/openclaw-hh-vacancies /usr/local/bin/openclaw-hh-vacancies
@@ -40,8 +41,8 @@ RUN chmod +x /usr/local/bin/openclaw-init-telegram
 # Seed custom workspace skills and create OpenClaw state dirs.
 COPY skills/hh-vacancies /sandbox/.agents/skills/hh-vacancies
 
-RUN mkdir -p /sandbox/.openclaw /sandbox/.agents/skills && \
-    chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.agents
+RUN mkdir -p /sandbox/.openclaw /sandbox/.agents/skills /sandbox/.cache/openclaw-compile-cache && \
+    chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.agents /sandbox/.cache
 
 USER sandbox
 
