@@ -9,7 +9,7 @@
 # Build:  docker build -t openshell-openclaw --build-arg BASE_IMAGE=openshell-base .
 # Run:    openshell sandbox create --from openclaw
 
-ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base@sha256:6a260cfeee7dba9b1d0334a326cc469e4c4f19b6374ccc509aae93ec06246263
 ARG OPENCLAW_VERSION=2026.4.9
 FROM ${BASE_IMAGE}
 
