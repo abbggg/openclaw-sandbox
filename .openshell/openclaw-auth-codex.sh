@@ -21,15 +21,56 @@ require_command() {
 require_command codex
 require_command openclaw
 
+apply_codex_yolo_backend() {
+    if ! openclaw config patch --stdin >/dev/null <<'JSON'
+{
+  "agents": {
+    "defaults": {
+      "cliBackends": {
+        "codex-cli": {
+          "command": "codex",
+          "args": [
+            "exec",
+            "--json",
+            "--color",
+            "never",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "-c",
+            "service_tier=\"fast\"",
+            "--skip-git-repo-check"
+          ],
+          "resumeArgs": [
+            "exec",
+            "resume",
+            "{sessionId}",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "-c",
+            "service_tier=\"fast\"",
+            "--skip-git-repo-check"
+          ]
+        }
+      }
+    }
+  }
+}
+JSON
+    then
+        echo "Warning: failed to configure Codex CLI yolo backend." >&2
+    fi
+}
+
 codex login --device-auth
 
 openclaw models set codex-cli/gpt-5.5
 openclaw config set agents.defaults.thinkingDefault '"high"' --strict-json
+openclaw exec-policy preset yolo --json >/dev/null 2>&1 || true
+apply_codex_yolo_backend
 
 echo ""
 echo "OpenClaw model auth configured."
 echo "  Default model: codex-cli/gpt-5.5"
 echo "  Reasoning: high"
+echo "  Yolo mode: OpenClaw approvals and nested Codex sandbox disabled"
 echo ""
 echo "Next:"
 echo "  1. Run: openclaw models status --json --agent main"

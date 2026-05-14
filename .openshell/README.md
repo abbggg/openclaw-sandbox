@@ -31,7 +31,7 @@ scripts/openshell_connect_env.sh --sandbox-id openclaw-sandbox openclaw-sandbox
 
 The create step materializes the sandbox from `.openshell/`, applies the bundled `policy.yaml`, attaches a combined OpenShell provider that injects `TELEGRAM_BOT_TOKEN` plus optional `HH_*` credentials from a per-sandbox secrets file, then patches the Sandbox CR so OpenShell launches the baked `openclaw-sandbox-command` on every pod boot.
 
-`openclaw-sandbox-command` repairs `gateway.mode=local`, `gateway.bind=loopback`, and `discovery.mdns.mode=off`, applies the official `openclaw exec-policy preset yolo` preset, and keeps the gateway in the foreground so OpenClaw stays alive across sandbox pod restarts. `scripts/openclaw_create_env.sh` applies the required Sandbox CR patch automatically. `openclaw-start` remains the human-facing helper for first-run instructions and manual recovery if you intentionally stop the gateway inside an existing shell session.
+`openclaw-sandbox-command` repairs `gateway.mode=local`, `gateway.bind=loopback`, and `discovery.mdns.mode=off`, applies the official `openclaw exec-policy preset yolo` preset, configures the Codex CLI backend with `--dangerously-bypass-approvals-and-sandbox`, and keeps the gateway in the foreground so OpenClaw stays alive across sandbox pod restarts. `scripts/openclaw_create_env.sh` applies the required Sandbox CR patch automatically. `openclaw-start` remains the human-facing helper for first-run instructions and manual recovery if you intentionally stop the gateway inside an existing shell session.
 
 For a second materialization such as `openclaw-natasha`, create a dedicated secrets file first and override only the sandbox id:
 
@@ -126,7 +126,7 @@ Verified behaviour in the current sandbox:
 
 Because of that, the helper's default `auto` mode falls back to public search if authenticated vacancy search is forbidden.
 
-Because the sandbox starts with the `yolo` exec preset, `hh-vacancies` can execute `openclaw-hh-vacancies ...` without per-search OpenClaw approval prompts.
+Because the sandbox starts with yolo mode, `hh-vacancies` can execute `openclaw-hh-vacancies ...` without per-search OpenClaw approval prompts. Codex-backed agents also run without their nested bwrap/workspace sandbox because OpenShell is the outer sandbox boundary for this environment.
 
 If Telegram claims it cannot read `~/.agents/skills/hh-vacancies/SKILL.md`, verify the skill first with `openclaw skills info hh-vacancies`. If the skill is reported as `Ready`, retry the request before changing filesystem permissions.
 
