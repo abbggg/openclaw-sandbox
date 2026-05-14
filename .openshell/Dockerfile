@@ -10,13 +10,14 @@
 # Run:    openshell sandbox create --from openclaw
 
 ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base@sha256:6a260cfeee7dba9b1d0334a326cc469e4c4f19b6374ccc509aae93ec06246263
-ARG OPENCLAW_VERSION=2026.4.9
+ARG OPENCLAW_VERSION=2026.5.7
+ARG CODEX_CLI_VERSION=0.130.0
 FROM ${BASE_IMAGE}
 
 USER root
 
-# Install OpenClaw CLI pinned to the latest verified upstream release.
-RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
+# Install OpenClaw plus the Codex CLI version required by gpt-5.5 device auth.
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}" "@openai/codex@${CODEX_CLI_VERSION}"
 
 # Copy sandbox policy
 COPY policy.yaml /etc/openshell/policy.yaml

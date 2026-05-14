@@ -9,6 +9,7 @@ set -euo pipefail
 export HOME="${HOME:-/sandbox}"
 export USER="${USER:-sandbox}"
 export SHELL="${SHELL:-/bin/bash}"
+export PATH="${HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}"
 export OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_STATE_DIR}/openclaw.json}"
 export OPENCLAW_NO_RESPAWN="${OPENCLAW_NO_RESPAWN:-1}"

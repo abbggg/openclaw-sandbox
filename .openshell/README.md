@@ -9,14 +9,15 @@ The repository root may contain any repo-level files that are useful to humans, 
 
 ## What's Included
 
-- **OpenClaw CLI 2026.4.9** -- Agent orchestration and gateway management
+- **OpenClaw CLI 2026.5.7** -- Agent orchestration and gateway management
+- **Codex CLI 0.130.0** -- ChatGPT device auth and `gpt-5.5` runtime support
 - **OpenClaw Gateway** -- Local gateway for agent-to-tool communication, enabled persistently by the host-side create helper
 - **Node.js 22** -- Runtime required by the OpenClaw gateway
 - **HH vacancies helper** -- `openclaw-hh-vacancies` for public or OAuth-backed vacancy search via `api.hh.ru`
 - **HH OpenClaw skill** -- custom skill materialized into `~/.agents/skills/hh-vacancies`
 - **openclaw-start** -- Helper script that prints the headless OAuth next step and can repair/restart the gateway on demand
 - **openclaw-sandbox-command** -- Foreground OpenShell sandbox command that keeps the gateway running across pod restarts
-- **openclaw-auth-codex** -- Post-launch helper that runs `codex login --device-auth` and switches OpenClaw to `openai-codex/gpt-5.4`
+- **openclaw-auth-codex** -- Post-launch helper that runs `codex login --device-auth` and switches OpenClaw to `codex-cli/gpt-5.5` with high reasoning
 - **openclaw-init-telegram** -- Post-auth helper that enables the native Telegram channel in pairing mode, disables native Telegram exec approvals, and keeps group access disabled
 
 ## Recommended Flow
@@ -59,12 +60,13 @@ Because the sandbox runs headless, the supported flow is ChatGPT device auth thr
 1. Copy the device-auth URL printed by `codex`.
 2. Open it in a local browser and complete the ChatGPT sign-in flow.
 3. Enter the one-time code shown in the sandbox terminal.
-4. Wait for `codex` to finish, then `openclaw-auth-codex` sets `openai-codex/gpt-5.4` as the default model.
+4. Wait for `codex` to finish, then `openclaw-auth-codex` sets `codex-cli/gpt-5.5` as the default model with high reasoning.
 
 Verified result after successful login:
 
-- `openclaw models status --json --agent main` resolves the default model to `openai-codex/gpt-5.4`;
-- `openclaw models list --agent main` shows `openai-codex/gpt-5.4` as `default, configured`.
+- `openclaw models status --json --agent main` resolves the default model to `codex-cli/gpt-5.5`;
+- `openclaw models list --agent main` shows `codex-cli/gpt-5.5` as `default, configured`;
+- `~/.openclaw/openclaw.json` stores `agents.defaults.thinkingDefault` as `high`.
 
 ## Telegram Bootstrap
 
